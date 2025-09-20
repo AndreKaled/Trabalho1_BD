@@ -19,6 +19,9 @@ restart: down up
 test:
 	docker compose run --rm app python src/index.py
 
+parser:
+	docker compose run --rm app python src/parser.py
+
 health:
 	docker compose ps
 
