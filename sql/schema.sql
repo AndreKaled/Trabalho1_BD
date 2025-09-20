@@ -1,25 +1,33 @@
+DROP VIEW  IF EXISTS View_review;
+DROP TABLE IF EXISTS Review;
+DROP TABLE IF EXISTS Customer;
+DROP TABLE IF EXISTS Product_categories;
+DROP TABLE IF EXISTS Categories;
+DROP TABLE IF EXISTS Product_similar;
+DROP TABLE IF EXISTS Product;
+
 CREATE TABLE Product(
-    id_product INTEGER SERIAL,
+    id_product SERIAL,
     asin VARCHAR(20) UNIQUE,
-    title VARCHAR(50),
-    prod_group VARCHAR(20),
+    title VARCHAR(250),
+    prod_group VARCHAR(250),
     salesrank INTEGER,
-    total INTEGER,
+    total_review INTEGER,
     PRIMARY KEY (id_product)
 );
 
 -- relacao de um produto com outros produtos
 CREATE TABLE Product_similar(
     id_product INTEGER,
-    id_similar INTEGER CHECK (id_similar != id_product),
-    PRIMARY KEY (id_product, id_similar),
+    asin_similar VARCHAR(20) ,
+    PRIMARY KEY (id_product, asin_similar),
     FOREIGN KEY (id_product) REFERENCES Product(id_product),
-    FOREIGN KEY (id_similar) REFERENCES Product(id_product),
+    FOREIGN KEY (asin_similar) REFERENCES Product(asin)
 );
 
 -- categoria segue uma chamada recursiva até encontrar NULL
 CREATE TABLE Categories(
-    id_category INTEGER,
+    id_category INTEGER UNIQUE,
     category_name VARCHAR(50),
     id_category_father INTEGER DEFAULT NULL,
     PRIMARY KEY (id_category),
@@ -35,8 +43,12 @@ CREATE TABLE Product_categories(
     FOREIGN KEY (id_category_son) REFERENCES Categories(id_category)
 );
 
+CREATE TABLE Customer(
+                         id_customer VARCHAR(14) PRIMARY KEY
+);
+
 CREATE TABLE Review(
-    id_review INTEGER SERIAL,
+    id_review SERIAL,
     id_product INTEGER,
     date DATE,
     customer VARCHAR(14),
@@ -46,10 +58,6 @@ CREATE TABLE Review(
     PRIMARY KEY (id_review),
     FOREIGN KEY (customer) REFERENCES Customer(id_customer),
     FOREIGN KEY (id_product) REFERENCES Product(id_product)
-);
-
-CREATE TABLE Customer(
-    id_customer VARCHAR(14) PRIMARY KEY,
 );
 
 CREATE VIEW View_review AS

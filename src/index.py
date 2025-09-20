@@ -1,6 +1,12 @@
 import psycopg
+from parser import parser
 
-def main():
+SCHEMA = "sql/schema.sql"
+CHUNK = 5
+ARQUIVO = "../data/amazon-meta.txt"
+
+
+def conectar_postgres():
     try:
         con = psycopg.connect(
             host="db",
@@ -8,21 +14,117 @@ def main():
             dbname="ecommerce",
             user="postgres",
             password="postgres")
-        print("tudo certinho '-'")
-        con.close()
+        return con
     except Exception as error:
         print("Deu erro ae: ", error)
+        return None
 
-import time
+def executar_script_sql(arquivo_sql, conexao):
+    try:
+        # Abrir o arquivo .sql
+        with open(arquivo_sql, 'r') as f:
+            script_sql = f.read()
+        # Criar um cursor e executar o script SQL
+        with conexao.cursor() as cursor:
+            cursor.execute(script_sql)
+            conexao.commit()
+            print("Schema criado com sucesso!")
+    except Exception as e:
+        print(f"Ocorreu um erro: {e}")
+        conexao.rollback()
+        conexao.close()
+        return 1
+    conexao.close()
+    return 0
 
-def count_lines(filepath: str):
-    start = time.time()
-    count = 0
-    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-        for ff in f:
-            count += 1
-    elapsed = time.time() - start
-    print(f"Linhas: {count}")
-    print(f"Tempo: {elapsed:.2f} segundos")
+def selectProduto(con):
+    try:
+        cursor = con.cursor()
+        sql = """SELECT * FROM Product"""
+        consulta = cursor.execute(sql)
 
-count_lines("../data/amazon-meta.txt")
+        print(f"select deu isso ae:")
+        for linha in consulta:
+            print(linha)
+
+        return 0
+    except Exception as e:
+        print(f"erro ao buscar na tabela Product: {e}")
+        con.rollback()
+        return 1
+
+def populaProduto(con, produtos):
+    try:
+        cursor = con.cursor()
+        sql = """INSERT INTO Product (asin, title, prod_group,
+               salesrank, total_review) 
+               VALUES (%s, %s, %s, %s, %s);"""
+        for produto in produtos:
+            salesrank = int(produto.get('salesrank', 0))
+            total_review = int(produto.get('total_review', 0))
+
+            values = (
+                produto.get('ASIN'),
+                produto.get('title', 'NULL'),
+                produto.get('group', 'NULL'),
+                salesrank,
+                total_review
+            )
+            cursor.execute(sql, values)
+        con.commit()
+        print(f"inserido {len(produtos)} produtos da tabela Product")
+        return 0
+    except Exception as e:
+        print(f"erro ao popular a tabela Product: {e}")
+        con.rollback()
+        return 1
+
+def populaCategoria(con, produtos):
+    try:
+        cursor = con.cursor()
+        sql = """INSERT INTO Categories(id_category, 
+                 category_name, id_category_father) 
+                 VALUES(%s, %s, %s)
+                 ON CONFLICT (id_category) DO NOTHING;
+              """
+        for produto in produtos:
+            for categorias in produto['categories']:
+                anterior = None
+                for categoria in categorias:
+                    id = categoria.split('[')[1].split(']')[0]
+                    nome = categoria.split('[')[0]
+                    values = (id, nome, anterior)
+                    cursor.execute(sql, values)
+                    anterior = id
+    except Exception as e:
+        print(f"erro ao inserir na tabela Category: {e}")
+        return 1
+
+def selectCategory(con):
+    try:
+        cursor = con.cursor()
+        sql = """SELECT * FROM Categories"""
+        consulta = cursor.execute(sql)
+
+        print(f"select deu isso ae:")
+        for linha in consulta:
+            print(linha)
+
+        return 0
+    except Exception as e:
+        print(f"erro ao buscar na tabela Product: {e}")
+        con.rollback()
+        return 1
+
+def main():
+    con = conectar_postgres()
+    ret = executar_script_sql(SCHEMA, con)
+    if ret == 0:
+        con = conectar_postgres()
+    for produto in parser(ARQUIVO, CHUNK):
+        populaProduto(con, produto)
+        populaCategoria(con, produto)
+    selectCategory(con)
+    con.close()
+
+main()

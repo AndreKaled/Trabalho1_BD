@@ -1,8 +1,6 @@
 # teste parser
-import pandas as pd
+import time
 
-CHUNK = 15
-ARQUIVO = "../data/amazon-meta.txt"
 
 def mostraProdutos(produtos):
     print(f"Bloco de {len(produtos)} produtos")
@@ -26,12 +24,12 @@ def mostraProdutos(produtos):
         print()
     return produtos
 
-def parser(arquivo):
+def parser(arquivo, chunks):
     produtos = []
     produto = {}
     reviews_produto = []
 
-    with open (ARQUIVO, "r") as f:
+    with open (arquivo, "r") as f:
         for linha in f:
             linha = linha.strip()
 
@@ -42,10 +40,11 @@ def parser(arquivo):
                     reviews_produto = []
                     produtos.append(produto)
                     produto = {}
-                    if len(produtos) >= CHUNK:
-                        mostraProdutos(produtos)
+                    if len(produtos) >= chunks:
+                        yield produtos
                         produtos = []
                         break
+
                 # novo produto
                 produto = {
                     "Id":linha.split(":")[1].strip(),
@@ -108,7 +107,8 @@ def parser(arquivo):
         produtos.append(produto)
         mostraProdutos(produtos)
 
-def main():
-    parser(ARQUIVO)
-main()
-
+def main(arquivo, chunks):
+    start = time.time()
+    parser(arquivo, chunks)
+    end = time.time()
+    print(f"Tempo de execucao do parse: {end - start}")
