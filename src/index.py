@@ -82,20 +82,35 @@ def populaProduto(con, produtos):
 def populaCategoria(con, produtos):
     try:
         cursor = con.cursor()
+        total_categorias_inseridas = 0
         sql = """INSERT INTO Categories(id_category, 
                  category_name, id_category_father) 
                  VALUES(%s, %s, %s)
                  ON CONFLICT (id_category) DO NOTHING;
               """
+        sql2 = """
+               INSERT INTO Product_categories(id_product, id_category_son)
+               VALUES(%s, %s)
+               ON CONFLICT DO NOTHING;
+               """
         for produto in produtos:
-            for categorias in produto['categories']:
-                anterior = None
-                for categoria in categorias:
-                    id = categoria.split('[')[1].split(']')[0]
-                    nome = categoria.split('[')[0]
-                    values = (id, nome, anterior)
-                    cursor.execute(sql, values)
-                    anterior = id
+            id_produto = int(produto.get('Id'))
+
+            if 'categories' in produto and produto['categories']:
+                total_categorias_inseridas += len(produto['categories'])
+                for hierarquia in produto['categories']:
+                    hierarquia = list(reversed(hierarquia))
+                    id_filho = None
+                    for categoria in hierarquia:
+                        nome = categoria.split('[')[0]
+                        id_categoria = int(categoria.split('[')[1].split(']')[0])
+
+                        cursor.execute(sql, (id_categoria, nome, id_filho))
+                        cursor.execute(sql2, (id_produto, id_categoria))
+                        id_filho = id_categoria
+        con.commit()
+        print(f"inserindo {len(total_categorias_inseridas)} categorias da tabela Categoria")
+        print(f"tambem insere a relacao na tabela Product_categories")
     except Exception as e:
         print(f"erro ao inserir na tabela Category: {e}")
         return 1
@@ -124,7 +139,7 @@ def main():
     for produto in parser(ARQUIVO, CHUNK):
         populaProduto(con, produto)
         populaCategoria(con, produto)
-    selectCategory(con)
+    selectProduto(con)
     con.close()
 
 main()
