@@ -2,7 +2,7 @@ import psycopg
 from parser import parser
 
 SCHEMA = "sql/schema.sql"
-CHUNK = 5
+CHUNK = 150
 ARQUIVO = "../data/amazon-meta.txt"
 
 
@@ -109,7 +109,7 @@ def populaCategoria(con, produtos):
                         cursor.execute(sql2, (id_produto, id_categoria))
                         id_filho = id_categoria
         con.commit()
-        print(f"inserindo {len(total_categorias_inseridas)} categorias da tabela Categoria")
+        print(f"inserindo {total_categorias_inseridas} categorias da tabela Categoria")
         print(f"tambem insere a relacao na tabela Product_categories")
     except Exception as e:
         print(f"erro ao inserir na tabela Category: {e}")
@@ -131,15 +131,84 @@ def selectCategory(con):
         con.rollback()
         return 1
 
+def populaReview(con, produtos):
+    try:
+        cursor = con.cursor()
+        cont = 0
+        sql = """
+                INSERT INTO Review(id_product, date, customer, 
+                rating, votes, helpful) 
+                VALUES (%s,%s,%s,%s,%s,%s)
+              """
+        sql_customer = """
+                        INSERT INTO Customer(id_customer)
+                        VALUES (%s) ON CONFLICT (id_customer) DO NOTHING;
+                       """
+        for produto in produtos:
+            id_produto = int(produto.get('Id'))
+            for review in produto['reviews']:
+                customer = review.get('customer')
+                date = review.get('date')
+                rating = int(review.get('rating'))
+                votes = int(review.get('votes'))
+                helpful = int(review.get('helpful'))
+                cursor.execute(sql_customer, (customer,))
+                values = (
+                    id_produto,
+                    date,
+                    customer,
+                    rating,
+                    votes,
+                    helpful
+                )
+                cursor.execute(sql, values)
+                cont+=1
+        con.commit()
+        print(f"inserindo {cont} reviews na tabela Review")
+    except Exception as error:
+        print(f"erro ao inserir na tabela Review: {error}")
+
+def populaSimilar(con, produtos):
+    try:
+        cursor = con.cursor()
+        cont = 0
+        sql_select_asin = """SELECT id_product FROM Product WHERE asin = %s"""
+        sql = """INSERT INTO Product_similar(id_product, asin_similar)
+              VALUES (%s,%s) ON CONFLICT DO NOTHING;"""
+        for produto in produtos:
+            id_produto = int(produto.get('Id'))
+            asin_principal = produto.get('ASIN')
+            if 'similar' in produto and produto['similar']:
+                for asin_similar in produto['similar']:
+                    if asin_principal == asin_similar: continue
+                    cursor.execute(sql_select_asin, (asin_similar,))
+                    result = cursor.fetchone()
+                    if result:
+                        asin_similar = result[0]
+                        cursor.execute(sql, (id_produto, asin_similar))
+                        cont+=1
+        con.commit()
+        print(f"inserindo {cont} similares na tabela Product_similar")
+    except Exception as e:
+        print(f"erro ao inserir na tabela Similar: {e}")
+
+# tentar mudar pra usar COPY
 def main():
     con = conectar_postgres()
     ret = executar_script_sql(SCHEMA, con)
     if ret == 0:
         con = conectar_postgres()
+    cont = 0
+
     for produto in parser(ARQUIVO, CHUNK):
         populaProduto(con, produto)
+        cont+=150
         populaCategoria(con, produto)
-    selectProduto(con)
+        populaReview(con, produto)
+        print(f"inseriu {cont} produtos")
+
+    for produto in parser(ARQUIVO, CHUNK):
+        populaSimilar(con, produto)
     con.close()
 
 main()

@@ -9,8 +9,8 @@ DROP TABLE IF EXISTS Product;
 CREATE TABLE Product(
     id_product SERIAL,
     asin VARCHAR(20) UNIQUE,
-    title VARCHAR(250),
-    prod_group VARCHAR(250),
+    title VARCHAR(500),
+    prod_group VARCHAR(300),
     salesrank INTEGER,
     total_review INTEGER,
     PRIMARY KEY (id_product)
@@ -28,7 +28,7 @@ CREATE TABLE Product_similar(
 -- categoria segue uma chamada recursiva até encontrar NULL
 CREATE TABLE Categories(
     id_category INTEGER UNIQUE,
-    category_name VARCHAR(50),
+    category_name VARCHAR(100),
     id_category_father INTEGER DEFAULT NULL,
     PRIMARY KEY (id_category),
     FOREIGN KEY (id_category_father) REFERENCES Categories(id_category)
@@ -44,14 +44,14 @@ CREATE TABLE Product_categories(
 );
 
 CREATE TABLE Customer(
-                         id_customer VARCHAR(14) PRIMARY KEY
+    id_customer VARCHAR(14) PRIMARY KEY
 );
 
 CREATE TABLE Review(
     id_review SERIAL,
     id_product INTEGER,
     date DATE,
-    customer VARCHAR(14),
+    customer VARCHAR(20),
     rating INTEGER,
     votes INTEGER,
     helpful INTEGER,

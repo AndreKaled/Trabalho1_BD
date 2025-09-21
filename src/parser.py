@@ -43,7 +43,6 @@ def parser(arquivo, chunks):
                     if len(produtos) >= chunks:
                         yield produtos
                         produtos = []
-                        break
 
                 # novo produto
                 produto = {
@@ -94,7 +93,7 @@ def parser(arquivo, chunks):
                 if partes_limpas:
                     review = {
                         "data": partes_limpas[0],
-                        "cutomer": partes_limpas[2],
+                        "customer": partes_limpas[2],
                         "rating": int(partes_limpas[4]),
                         "votes": int(partes_limpas[6]),
                         "helpful": int(partes_limpas[8]),
