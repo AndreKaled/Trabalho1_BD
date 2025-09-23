@@ -42,7 +42,9 @@ def parser(arquivo, chunks):
                     produto = {}
                     if len(produtos) >= chunks:
                         yield produtos
+                        mostraProdutos(produtos)
                         produtos = []
+                        break
 
                 # novo produto
                 produto = {
