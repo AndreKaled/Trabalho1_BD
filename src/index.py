@@ -19,6 +19,27 @@ def conectar_postgres():
         print("Deu erro ae: ", error)
         return None
 
+def COPY_FROM_STDIN(dados, tabela, colunas, conexao):
+    try:
+        sql = f"""COPY {tabela}({colunas}) FROM STDIN"""
+        cursor = conexao.cursor()
+        with cursor.copy(sql) as copy:
+            for dado in dados:
+                id = dado.get("Id")
+                asin = dado.get("ASIN")
+                title = dado.get("title", None)
+                prod_group = dado.get("group", None)
+                salesrank = dado.get("salesrank", None)
+                total_review = dado.get("review", None)
+                total_review = total_review['total'] if total_review else None
+
+                values = (asin,title,prod_group, salesrank, total_review)
+
+                copy.write_row(values)
+                print(f"COPIADO O ITEM: {dado.get('Id')}")
+    except Exception as e:
+        print(f"erro: {e}")
+
 def executar_script_sql(arquivo_sql, conexao):
     try:
         # Abrir o arquivo .sql
@@ -200,15 +221,18 @@ def main():
         con = conectar_postgres()
     cont = 0
 
-    for produto in parser(ARQUIVO, CHUNK):
-        populaProduto(con, produto)
-        cont+=150
-        populaCategoria(con, produto)
-        populaReview(con, produto)
-        print(f"inseriu {cont} produtos")
+    for produtos in parser(ARQUIVO, CHUNK):
+    #    populaProduto(con, produtos)
+    #    cont+=150
+    #    populaCategoria(con, produtos)
+    #    populaReview(con, produtos)
+    #    print(f"inseriu {cont} produtos")
 
-    for produto in parser(ARQUIVO, CHUNK):
-        populaSimilar(con, produto)
+    #for produtos in parser(ARQUIVO, CHUNK):
+    #    populaSimilar(con, produtos)
+    #con.close()
+        COPY_FROM_STDIN(produtos, "Product", "asin, title, prod_group, salesrank, total_review", con)
+        #selectProduto(con)
     con.close()
 
 main()

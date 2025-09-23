@@ -104,7 +104,7 @@ def parser(arquivo, chunks):
     if produto:
         produto["reviews"] = reviews_produto.copy()
         produtos.append(produto)
-        mostraProdutos(produtos)
+        #mostraProdutos(produtos)
 
 def main(arquivo, chunks):
     start = time.time()
