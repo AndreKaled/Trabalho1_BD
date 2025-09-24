@@ -44,6 +44,11 @@ def parser(arquivo, chunks):
                         yield produtos
                         produtos = []
 
+                        # adiciona o break que quiser testes rapidos
+                        # ele para quando terminar uma chunk dada
+                        # se nao tiver o break ele retorna os dados e dps continua a coletar
+                        # mais pra gerar mais retornos do parser e ir alimentando o laço for
+                        #break
                 # novo produto
                 produto = {
                     "Id":linha.split(":")[1].strip(),
