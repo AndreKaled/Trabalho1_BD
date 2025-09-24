@@ -144,14 +144,17 @@ def gerar_csvs(parser, tmp_dir="/out"):
     products_csv = os.path.join(tmp_dir, "Product.csv")
     categories_csv = os.path.join(tmp_dir, "Categories.csv")
     prodcat_csv = os.path.join(tmp_dir, "Product_categories.csv")
+    similar_csv = os.path.join(tmp_dir, "similar.csv")
 
-    with open(products_csv, "w", newline="", encoding="utf-8") as f_prod, \
+    with (open(products_csv, "w", newline="", encoding="utf-8") as f_prod, \
             open(categories_csv, "w", newline="", encoding="utf-8") as f_cat, \
-            open(prodcat_csv, "w", newline="", encoding="utf-8") as f_prodcat:
+            open(prodcat_csv, "w", newline="", encoding="utf-8") as f_prodcat, \
+            open(similar_csv, "w", newline="", encoding="utf-8") as f_similar):
 
         writer_prod = csv.writer(f_prod)
         writer_cat = csv.writer(f_cat)
         writer_prodcat = csv.writer(f_prodcat)
+        writer_similar = csv.writer(f_similar)
 
         # product
         for produtos in parser(ARQUIVO, CHUNK):
@@ -200,7 +203,21 @@ def gerar_csvs(parser, tmp_dir="/out"):
                                 print("erro em Product_categories:", e)
                                 continue
 
-    return products_csv, categories_csv, prodcat_csv
+                if "similar" in dado and dado["similar"]:
+                    try:
+                        similares = dado["similar"].split()
+                        qnt = int(similares[0])
+                        asin_list = similares[1:]
+
+                        id_produto = int(dado.get("Id"))
+                        for asin in asin_list:
+                            values = (id_produto, asin)
+                            writer_similar.writerow(values)
+                    except Exception as e:
+                        print("erro em Product_similar:", e)
+                        continue
+
+    return products_csv, categories_csv, prodcat_csv, similar_csv
 
 def COPY_FROM(con, tabela, colunas, caminho_csv):
     try:
@@ -254,7 +271,23 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                                 ON CONFLICT (id_product,id_category_son) DO NOTHING;
                             """
                 cursor.execute(sql_tmp);
-
+            elif tabela == "Product_similar":
+                sql_tmp = f"""CREATE TEMP TABLE tmp_product_similar(
+                                id_product INTEGER,
+                                asin_similar VARCHAR(20)
+                            );"""
+                cursor.execute(sql_tmp)
+                with open(caminho_csv, "r", encoding="utf-8") as f:
+                    with cursor.copy(f"COPY tmp_product_similar FROM STDIN CSV") as copy:
+                        for linha in f:
+                            copy.write(linha)
+                sql_tmp = f"""INSERT INTO {tabela} ({colunas}) 
+                                SELECT DISTINCT t.id_product, t.asin_similar 
+                                FROM tmp_product_similar t
+                                JOIN Product p ON t.asin_similar = p.asin
+                                ON CONFLICT ({colunas}) DO NOTHING;
+                            """
+                cursor.execute(sql_tmp);
         con.commit()
         print(f"{tabela} carregado com sucesso de {caminho_csv}")
     except Exception as e:
@@ -267,15 +300,16 @@ def main():
     if ret == 0:
         con = conectar_postgres()
 
-    products_csv, categories_csv, prodcat_csv = gerar_csvs(parser)
+    products_csv, categories_csv, prodcat_csv, similar_csv = gerar_csvs(parser)
     COPY_FROM(con, "Product", "asin, title, prod_group, salesrank, total_review", products_csv)
     COPY_FROM(con, "Categories", "id_category, category_name, id_category_father", categories_csv)
     COPY_FROM(con, "Product_categories", "id_product, id_category_son", prodcat_csv)
-
+    COPY_FROM(con, "Product_similar", "id_product, asin_similar", similar_csv)
     #for produtos in parser(ARQUIVO, CHUNK):
     #    COPY_FROM_STDIN(produtos, "Product", "asin, title, prod_group, salesrank, total_review", con)
     #    COPY_FROM_STDIN(produtos, "Categories", "id_category, category_name, id_category_father", con)
     #    COPY_FROM_STDIN(produtos, "Product_categories", "id_product, id_category_son", con)
+
     con.close()
 
 main()
