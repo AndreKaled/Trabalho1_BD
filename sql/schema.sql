@@ -1,3 +1,4 @@
+-- procedimento tecnico pra nao ter q dar restart no docker só pra testar
 DROP VIEW  IF EXISTS View_review;
 DROP TABLE IF EXISTS Review;
 DROP TABLE IF EXISTS Customer;
