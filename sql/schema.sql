@@ -74,7 +74,7 @@ FROM
 LEFT JOIN (
     SELECT 
         id_product,
-        COUNT(id.review) as review_count
+        COUNT(id_review) AS review_count
     FROM
         Review
     GROUP BY

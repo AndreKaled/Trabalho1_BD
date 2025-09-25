@@ -82,7 +82,7 @@ def parser(arquivo, chunks):
                 linha = linha.split(" ")
                 produto["total"] = linha[2].strip()
                 produto["downloaded"] = linha[5].strip()
-                produto['avg_rating'] = linha[7].strip()
+                produto['avg_rating'] = float(linha[9].strip())
 
             elif "cutomer" in linha and "helpful" in linha:
                 partes = linha.split(" ")

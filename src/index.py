@@ -146,25 +146,29 @@ def gerar_csvs(parser, tmp_dir="/out"):
     products_csv = os.path.join(tmp_dir, "Product.csv")
     categories_csv = os.path.join(tmp_dir, "Categories.csv")
     prodcat_csv = os.path.join(tmp_dir, "Product_categories.csv")
+    similar_csv = os.path.join(tmp_dir, "Product_similar.csv")
 
     with open(products_csv, "w", newline="", encoding="utf-8") as f_prod, \
             open(categories_csv, "w", newline="", encoding="utf-8") as f_cat, \
-            open(prodcat_csv, "w", newline="", encoding="utf-8") as f_prodcat:
+            open(prodcat_csv, "w", newline="", encoding="utf-8") as f_prodcat, \
+            open(similar_csv, "w", newline="", encoding="utf-8") as f_sim:
 
         writer_prod = csv.writer(f_prod)
         writer_cat = csv.writer(f_cat)
         writer_prodcat = csv.writer(f_prodcat)
+        writer_similar = csv.writer(f_sim)
 
         # product
         for produtos in parser(ARQUIVO, CHUNK):
-
             categories_set = set()
             prodcat_set = set()
             for dado in produtos:
+                if(len(dado) < 7):
+                    continue
                 total_reviews = dado.get("total", None)
                 if total_reviews is not None:
                     total_reviews = int(total_reviews)
-                #Adicionando o id_product na tupla de f_prod, 
+                #Adicionando o id_product na tupla de f_prod, tirar totais 
                 writer_prod.writerow((
                     int(dado.get("Id")),
                     dado.get("ASIN"),
@@ -182,7 +186,7 @@ def gerar_csvs(parser, tmp_dir="/out"):
                         for categoria_completa in hierarquia_reversa:
                             try:
                                 nome = categoria_completa.split('[')[0].strip()
-                                id_categoria = int(categoria_completa.split('[')[1].strip(']'))
+                                id_categoria = int(categoria_completa.split('[')[-1].strip(']'))
                                 tupla = (id_categoria, nome, id_filho)
                                 if tupla not in categories_set:
                                     writer_cat.writerow((id_categoria, nome, id_filho))
@@ -197,7 +201,7 @@ def gerar_csvs(parser, tmp_dir="/out"):
                         # Foi trocada a hierarquia por hierarquia_reversa, pois estava selecionando a primeira categoria da hierarquia(maior pai).
                         for categoria_completa in hierarquia_reversa:
                             try:
-                                id_categoria = int(categoria_completa.split('[')[1].strip(']'))
+                                id_categoria = int(categoria_completa.split('[')[-1].strip(']'))
                                 tupla = (id_produto, id_categoria)
                                 if tupla not in prodcat_set:
                                     writer_prodcat.writerow((id_produto, id_categoria))
@@ -205,8 +209,18 @@ def gerar_csvs(parser, tmp_dir="/out"):
                             except Exception as e:
                                 print("erro em Product_categories:", e)
                                 continue
-
-    return products_csv, categories_csv, prodcat_csv
+                            
+                if("similar" in dado and dado["similar"]):
+                        id_produto = int(dado.get("Id"))
+                        similares = dado["similar"].split("  ")
+                        for asin_similar in similares:
+                            try:
+                                writer_similar.writerow((id_produto, asin_similar.strip()))
+                            except Exception as e:
+                                print("erro em Product_similar:", e)
+                                continue
+                            
+    return similar_csv, products_csv, categories_csv, prodcat_csv
 
 def COPY_FROM(con, tabela, colunas, caminho_csv):
     try:
@@ -262,7 +276,22 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                                 ON CONFLICT (id_product,id_category_son) DO NOTHING;
                             """
                 cursor.execute(sql_tmp);
-
+            elif tabela == "Product_similar":
+                sql_tmp = f"""CREATE TEMP TABLE tmp_product_similar(
+                                id_product INTEGER,
+                                asin_similar VARCHAR(20),
+                            );"""
+                cursor.execute(sql_tmp)
+                #falta fazer o caminho_csv
+                with open(caminho_csv, "r", encoding="utf-8") as f:
+                    with cursor.copy(f"COPY tmp_product_similar FROM STDIN CSV") as copy:
+                        for linha in f:
+                            copy.write(linha)
+                sql_tmp = f"""INSERT INTO {tabela}({colunas}) 
+                                SELECT DISTINCT {colunas} FROM tmp_product_similar 
+                                ON CONFLICT (id_product,asin_similar) DO NOTHING;
+                            """
+                cursor.execute(sql_tmp);
         con.commit()
         print(f"{tabela} carregado com sucesso de {caminho_csv}")
     except Exception as e:
@@ -275,11 +304,12 @@ def main():
     if ret == 0:
         con = conectar_postgres()
 
-    products_csv, categories_csv, prodcat_csv = gerar_csvs(parser)
+    similar_csv, products_csv, categories_csv, prodcat_csv = gerar_csvs(parser)
     #Foi adicionaodo a chave do produto e a avg_rating na funcao COPY_FROM
     COPY_FROM(con, "Product", "id_product, asin, title, prod_group, salesrank, total_review, avg_rating", products_csv)
     COPY_FROM(con, "Categories", "id_category, category_name, id_category_father", categories_csv)
     COPY_FROM(con, "Product_categories", "id_product, id_category_son", prodcat_csv)
+    COPY_FROM(con, "Product_similar", "id_product, asin_similar", similar_csv)
 
     #for produtos in parser(ARQUIVO, CHUNK):
     #    COPY_FROM_STDIN(produtos, "Product", "asin, title, prod_group, salesrank, total_review", con)
