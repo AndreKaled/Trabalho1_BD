@@ -160,8 +160,11 @@ def gerar_csvs(parser, tmp_dir="/out"):
 
         # product
         for produtos in parser(ARQUIVO, CHUNK):
+            #foi adicionado uma lista para conter todos os ASIN do arquivo pois o similar usar ASIN e referencia o ASIN do Product(ASIN).
             categories_set = set()
             prodcat_set = set()
+            asin_list = []
+
             for dado in produtos:
                 if(len(dado) < 7):
                     continue
@@ -174,10 +177,11 @@ def gerar_csvs(parser, tmp_dir="/out"):
                     dado.get("ASIN"),
                     dado.get("title", None),
                     dado.get("group", None),
+                    total_reviews,
                     dado.get("salesrank", None),
                     dado.get("avg_rating", None),
-                    total_reviews
                 ))
+                asin_list.append(dado.get("ASIN"))
 
                 if "categories" in dado and dado["categories"]:
                     for hierarquia in dado["categories"]:
@@ -215,7 +219,8 @@ def gerar_csvs(parser, tmp_dir="/out"):
                         similares = dado["similar"].split("  ")
                         for asin_similar in similares:
                             try:
-                                writer_similar.writerow((id_produto, asin_similar.strip()))
+                                if asin_similar.strip() in asin_list:
+                                    writer_similar.writerow((id_produto, asin_similar.strip()))
                             except Exception as e:
                                 print("erro em Product_similar:", e)
                                 continue
@@ -231,8 +236,8 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                                 asin VARCHAR(20),
                                 title VARCHAR(500),
                                 prod_group VARCHAR(300),
+                                total_review INTEGER,
                                 salesrank INTEGER,
-                                total_review INTEGER
                                 avg_rating FLOAT
                                 );"""
                 cursor.execute(sql_tmp)
@@ -279,7 +284,7 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
             elif tabela == "Product_similar":
                 sql_tmp = f"""CREATE TEMP TABLE tmp_product_similar(
                                 id_product INTEGER,
-                                asin_similar VARCHAR(20),
+                                asin_similar VARCHAR(20)
                             );"""
                 cursor.execute(sql_tmp)
                 #falta fazer o caminho_csv
@@ -306,7 +311,7 @@ def main():
 
     similar_csv, products_csv, categories_csv, prodcat_csv = gerar_csvs(parser)
     #Foi adicionaodo a chave do produto e a avg_rating na funcao COPY_FROM
-    COPY_FROM(con, "Product", "id_product, asin, title, prod_group, salesrank, total_review, avg_rating", products_csv)
+    COPY_FROM(con, "Product", "id_product, asin, title, prod_group, total_review, salesrank, avg_rating", products_csv)
     COPY_FROM(con, "Categories", "id_category, category_name, id_category_father", categories_csv)
     COPY_FROM(con, "Product_categories", "id_product, id_category_son", prodcat_csv)
     COPY_FROM(con, "Product_similar", "id_product, asin_similar", similar_csv)

@@ -12,8 +12,8 @@ CREATE TABLE Product(
     asin VARCHAR(20) UNIQUE,
     title VARCHAR(500),
     prod_group VARCHAR(300),
-    salesrank INTEGER,
     total_review INTEGER,
+    salesrank INTEGER,
     avg_rating FLOAT,
     PRIMARY KEY (id_product)
 );
