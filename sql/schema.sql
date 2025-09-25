@@ -16,7 +16,6 @@ CREATE TABLE Product(
     total_review INTEGER,
     avg_rating FLOAT,
     PRIMARY KEY (id_product)
-    
 );
 
 -- relacao de um produto com outros produtos
