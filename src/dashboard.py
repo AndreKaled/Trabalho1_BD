@@ -25,23 +25,13 @@ QUERIES = {
         LEFT JOIN
             View_review vr ON p.id_product = vr.id_product
         ORDER BY
-            quantidade_reviews DESC
+            quantidade_reviews DESC 
         LIMIT 5;
     """,
 
-    "03_resumo_por_grupo_de_produto": """
-        SELECT
-            prod_group,
-            COUNT(*) AS numero_de_produtos,
-            TRUNC(AVG(avg_rating), 2) AS media_rating_grupo
-        FROM
-            Product
-        WHERE
-            prod_group IS NOT NULL
-        GROUP BY
-            prod_group
-        ORDER BY
-            numero_de_produtos DESC;
+    "03_quantidade_de_review": """
+        SELECT COUNT(*)
+        FROM Review
     """
 }
 
@@ -122,11 +112,11 @@ def main():
     parser = argparse.ArgumentParser(description="Script para executar consultas SQL em um banco de dados PostgreSQL.")
     
     # Usa variáveis de ambiente como fallback para os parâmetros, o que é uma boa prática
-    parser.add_argument('--db-host', default=os.getenv('PGHOST', 'localhost'), help='Host do banco de dados.')
+    parser.add_argument('--db-host', default=os.getenv('PGHOST', 'db'), help='Host do banco de dados.')
     parser.add_argument('--db-port', default=os.getenv('PGPORT', '5432'), help='Porta do banco de dados.')
-    parser.add_argument('--db-name', default=os.getenv('PGDATABASE', 'mydatabase'), help='Nome do banco de dados.')
-    parser.add_argument('--db-user', default=os.getenv('PGUSER', 'myuser'), help='Usuário do banco de dados.')
-    parser.add_argument('--db-password', default=os.getenv('PGPASSWORD'), required=os.getenv('PGPASSWORD') is None, help='Senha do banco de dados.')
+    parser.add_argument('--db-name', default=os.getenv('POSTGRES_DB', 'ecommerce'), help='Nome do banco de dados.')
+    parser.add_argument('--db-user', default=os.getenv('POSTGRES_USER', 'postgres'), help='Usuário do banco de dados.')
+    parser.add_argument('--db-password', default=os.getenv('POSTGRES_PASSWORD'), required=os.getenv('POSTGRES_PASSWORD') is None, help='Senha do banco de dados.')
     parser.add_argument('--output-dir', default='/app/out', help='Diretório para salvar os arquivos CSV.')
 
     args = parser.parse_args()

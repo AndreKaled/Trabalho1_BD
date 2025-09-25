@@ -52,7 +52,7 @@ CREATE TABLE Customer(
 CREATE TABLE Review(
     id_review SERIAL,
     id_product INTEGER,
-    date DATE,
+    data_review DATE,
     customer VARCHAR(20),
     rating INTEGER,
     votes INTEGER,

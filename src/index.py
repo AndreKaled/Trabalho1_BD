@@ -113,6 +113,44 @@ def COPY_FROM_STDIN(dados, tabela, colunas, conexao):
             conexao.commit()
             dados_pra_copiar = None
 
+        #completar as Review
+        elif tabela == "Review":
+            sql_tmp = """CREATE TEMP TABLE tmp_review(
+                        id_review SERIAL, id_product INTEGER,
+                        data_review DATE, customer VARCHAR(20), 
+                        rating  INTEGER, votes INTEGER, helpful INTEGER);"""
+            cursor = conexao.cursor()
+            cursor.execute(sql_tmp)
+            sql_tmp = f"""COPY tmp_review({colunas}) FROM STDIN;"""
+            for produto in dados:
+                id_produto = int(produto.get("Id"))
+                if 'reviews' in produto and produto['reviews']:
+                    for review in produto['reviews']:
+                        try:
+                            data = review['data']
+                            customer = review['customer']
+                            rating = review['rating']
+                            votes = review['votes']
+                            helpful = review['helpful']
+
+                            values = (data, customer, rating, votes, helpful)
+                            dados_pra_copiar.append(values)
+                        except Exception as e:
+                            print("deu erro em Review:", e)
+                            continue
+            if dados_pra_copiar:
+                with cursor.copy(sql_tmp) as copy:
+                    for linha in dados_pra_copiar:
+                        copy.write_row(linha)
+            sql_tmp = f"""INSERT INTO {tabela}({colunas})
+                            SELECT DISTINCT {colunas} FROM tmp_review
+                            ON CONFLICT ({colunas}) DO NOTHING;
+                            """
+            cursor.execute(sql_tmp)
+            cursor.execute("DROP TABLE IF EXISTS tmp_review")
+            conexao.commit()
+            dados_pra_copiar = None
+
         if dados_pra_copiar:
             with cursor.copy(sql) as copy:
                 for linha in dados_pra_copiar:
@@ -147,26 +185,49 @@ def gerar_csvs(parser, tmp_dir="/out"):
     categories_csv = os.path.join(tmp_dir, "Categories.csv")
     prodcat_csv = os.path.join(tmp_dir, "Product_categories.csv")
     similar_csv = os.path.join(tmp_dir, "Product_similar.csv")
+    review_csv = os.path.join(tmp_dir, "Review.csv")
+    customer_csv = os.path.join(tmp_dir, "Customers.csv")
 
     with open(products_csv, "w", newline="", encoding="utf-8") as f_prod, \
             open(categories_csv, "w", newline="", encoding="utf-8") as f_cat, \
             open(prodcat_csv, "w", newline="", encoding="utf-8") as f_prodcat, \
-            open(similar_csv, "w", newline="", encoding="utf-8") as f_sim:
+            open(similar_csv, "w", newline="", encoding="utf-8") as f_sim, \
+            open(customer_csv, "w", newline="", encoding="utf-8") as f_cus, \
+            open(review_csv, "w", newline="", encoding="utf-8") as f_rev:
 
         writer_prod = csv.writer(f_prod)
         writer_cat = csv.writer(f_cat)
         writer_prodcat = csv.writer(f_prodcat)
         writer_similar = csv.writer(f_sim)
+        writer_review = csv.writer(f_rev)
+        writer_customer = csv.writer(f_cus)
+
+        #review_id = 0 Saiuuu pq não precisamos, o domínio Serial faz a incrementação sozinhooo
+        num_pacotes = 0
+
+
+        #foi adicionado uma lista para conter todos os ASIN do arquivo pois o similar usar ASIN e referencia o ASIN do Product(ASIN).
+        categories_set = set()
+        prodcat_set = set()
+        asin_list = set()
+        customers = set()
+
+
 
         # product
         for produtos in parser(ARQUIVO, CHUNK):
-            #foi adicionado uma lista para conter todos os ASIN do arquivo pois o similar usar ASIN e referencia o ASIN do Product(ASIN).
-            categories_set = set()
-            prodcat_set = set()
-            asin_list = []
+
+            print(f"FORAM ADICIONADOS {num_pacotes} Produtos, E ESTÁ SENDO INICIADO O PARSER DE UM NOVO PACOTE DE PRODUTOS")
+            if(num_pacotes>=1000):
+               break
+            print(len(produtos))
+
 
             for dado in produtos:
-                if(len(dado) < 7):
+                print(f"Produtos número {num_pacotes} sendo carregado.")
+
+
+                if(len(dado) < 3):
                     continue
                 total_reviews = dado.get("total", None)
                 if total_reviews is not None:
@@ -180,10 +241,13 @@ def gerar_csvs(parser, tmp_dir="/out"):
                     total_reviews,
                     dado.get("salesrank", None),
                     dado.get("avg_rating", None),
+                    
                 ))
-                asin_list.append(dado.get("ASIN"))
+                asin_list.add((dado.get("ASIN")))
+
 
                 if "categories" in dado and dado["categories"]:
+                    print("Carregando categories")
                     for hierarquia in dado["categories"]:
                         hierarquia_reversa = list(reversed(hierarquia))
                         id_filho = None
@@ -215,17 +279,52 @@ def gerar_csvs(parser, tmp_dir="/out"):
                                 continue
                             
                 if("similar" in dado and dado["similar"]):
-                        id_produto = int(dado.get("Id"))
-                        similares = dado["similar"].split("  ")
-                        for asin_similar in similares:
-                            try:
-                                if asin_similar.strip() in asin_list:
-                                    writer_similar.writerow((id_produto, asin_similar.strip()))
-                            except Exception as e:
-                                print("erro em Product_similar:", e)
-                                continue
+                    print("Carregando similares")
+                    id_produto = int(dado.get("Id"))
+                    similares = dado["similar"].split("  ")
+                    for asin_similar in similares:
+                        try:
+                            if asin_similar.strip() in asin_list:
+                                writer_similar.writerow((id_produto, asin_similar.strip()))
+                        except Exception as e:
+                            print("erro em Product_similar:", e)
+                            continue
+
+                if 'reviews' in dado and dado['reviews']:
+                    print("Carregando reviews")
+                    id_produto = int(dado.get("Id"))
+
+                    for review in dado['reviews']:
+                        try:
+                            #id_review = review_id Saiu pq implementa sozinhoooooooooo
+                            id_produto = id_produto
+                            data = review['data']
+                            customer = review['customer']
+                            rating = review['rating']
+                            votes = review['votes']
+                            helpful = review['helpful']
+
+                            if(customer not in customers):
+                                writer_customer.writerow([customer])
+                                customers.add((customer))
+
+                            if(customer in customers):    
+                                #values = (int(id_review), id_produto, data, customer, rating, votes, helpful)
+                                values = ( id_produto, data, customer, rating, votes, helpful) #id_rivew saiu porque é serial e implementa sozinho
+
+                                print(values) #Printa as tuplas das reviews     RETIRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!!!!
+                                writer_review.writerow(values)
+                                #id_review +=1 Saiuuuu pq o domínio SERIAL incrementa sozinho
+                            else:
+                                print("Customer da review não está em customers")
+
+                        except Exception as e:
+                            print("deu erro em Review:", e)
+                            continue
+                num_pacotes += 1
+                    
                             
-    return similar_csv, products_csv, categories_csv, prodcat_csv
+    return similar_csv, products_csv, categories_csv, prodcat_csv, review_csv, customer_csv
 
 def COPY_FROM(con, tabela, colunas, caminho_csv):
     try:
@@ -247,9 +346,11 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                             copy.write(linha)
                 sql_tmp = f"""INSERT INTO {tabela}({colunas}) 
                                 SELECT DISTINCT {colunas} FROM tmp_product 
-                                ON CONFLICT (asin) DO NOTHING;
+                                ON CONFLICT (id_product) DO NOTHING;
                                 """
                 cursor.execute(sql_tmp);
+            
+
             elif tabela == "Categories":
                 sql_tmp = f"""CREATE TEMP TABLE tmp_categories(
                                 id_category INTEGER,
@@ -266,6 +367,8 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                                 ON CONFLICT (id_category) DO NOTHING;
                             """
                 cursor.execute(sql_tmp);
+            
+
             elif tabela == "Product_categories":
                 sql_tmp = f"""CREATE TEMP TABLE tmp_product_categories(
                                 id_product INTEGER,
@@ -277,10 +380,10 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                         for linha in f:
                             copy.write(linha)
                 sql_tmp = f"""INSERT INTO {tabela}({colunas}) 
-                                SELECT DISTINCT {colunas} FROM tmp_product_categories 
-                                ON CONFLICT (id_product,id_category_son) DO NOTHING;
+                                SELECT DISTINCT {colunas} FROM tmp_product_categories ;
                             """
                 cursor.execute(sql_tmp);
+            
             elif tabela == "Product_similar":
                 sql_tmp = f"""CREATE TEMP TABLE tmp_product_similar(
                                 id_product INTEGER,
@@ -293,10 +396,59 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                         for linha in f:
                             copy.write(linha)
                 sql_tmp = f"""INSERT INTO {tabela}({colunas}) 
-                                SELECT DISTINCT {colunas} FROM tmp_product_similar 
-                                ON CONFLICT (id_product,asin_similar) DO NOTHING;
+                                SELECT DISTINCT {colunas} FROM tmp_product_similar;
                             """
                 cursor.execute(sql_tmp);
+            
+            #ADICIONADA RECENTEMENTE.
+            elif tabela == "Review":
+                sql_tmp = """CREATE TEMP TABLE tmp_review(
+                        id_product INTEGER,
+                        data_review DATE, customer VARCHAR(20), 
+                        rating  INTEGER, votes INTEGER, helpful INTEGER);"""
+                
+                        #id_review SERIAL,  Saiu da criação da tabela CREAT TEMP TABLE pq o domínio SERIAL incremeneta sozinhooo
+                cursor.execute(sql_tmp)
+                with open(caminho_csv, "r", encoding="utf-8") as f:
+                    with cursor.copy(f"COPY tmp_review({colunas}) FROM STDIN CSV") as copy:
+                        copy.write(f.read())
+
+
+                sql_tmp = f"""INSERT INTO {tabela}({colunas})
+                SELECT {colunas} FROM tmp_review;
+                            """
+                cursor.execute(sql_tmp)
+
+                #Não entendi o pq não precisa incrementar nas linhas, apenas insere direto, mas funcionou  NÃO MECHAAAAAA É PERIGOSOOOOOOOOOO
+                '''
+                    with cursor.copy(f"COPY tmp_review FROM STDIN CSV") as copy:
+                        for linha in f:
+                            print(linha)
+                            copy.write(linha)
+                sql_tmp = f"""INSERT INTO {tabela}({colunas})
+                            SELECT DISTINCT {colunas} FROM tmp_review;
+                            """
+                            #ON CONFLICT (id_review) DO NOTHING;'''
+
+                cursor.execute(sql_tmp);
+            
+            #INSERÇÃO DA TABELA CUSTOMER:
+            elif tabela == "Customer":
+                sql_tmp = """CREATE TEMP TABLE tmp_customer(
+                        id_customer VARCHAR(14))"""
+                
+                cursor.execute(sql_tmp)
+                with open(caminho_csv, "r", encoding="utf-8") as f:
+                    with cursor.copy(f"COPY tmp_customer FROM STDIN CSV") as copy:
+                        for linha in f:
+                            copy.write(linha)
+
+                sql_tmp = f"""INSERT INTO {tabela}({colunas})
+                            SELECT DISTINCT {colunas} FROM tmp_customer
+                            ON CONFLICT (id_customer) DO NOTHING;
+                            """
+                cursor.execute(sql_tmp);
+                    
         con.commit()
         print(f"{tabela} carregado com sucesso de {caminho_csv}")
     except Exception as e:
@@ -309,12 +461,15 @@ def main():
     if ret == 0:
         con = conectar_postgres()
 
-    similar_csv, products_csv, categories_csv, prodcat_csv = gerar_csvs(parser)
+    similar_csv, products_csv, categories_csv, prodcat_csv, review_csv, customer_csv = gerar_csvs(parser)
     #Foi adicionaodo a chave do produto e a avg_rating na funcao COPY_FROM
     COPY_FROM(con, "Product", "id_product, asin, title, prod_group, total_review, salesrank, avg_rating", products_csv)
     COPY_FROM(con, "Categories", "id_category, category_name, id_category_father", categories_csv)
     COPY_FROM(con, "Product_categories", "id_product, id_category_son", prodcat_csv)
     COPY_FROM(con, "Product_similar", "id_product, asin_similar", similar_csv)
+    COPY_FROM(con, "Customer", "id_customer", customer_csv)
+    #COPY_FROM(con, "Review", "id_review, id_product, data_review, customer, rating, votes, helpful", review_csv) MUDOU POIS NÃO PRECISA INSERIR ID_REVIEW O DOMÍNIO SERIAL INCREMENTA SOZINHO 
+    COPY_FROM(con, "Review",  "id_product, data_review, customer, rating, votes, helpful", review_csv)
 
     #for produtos in parser(ARQUIVO, CHUNK):
     #    COPY_FROM_STDIN(produtos, "Product", "asin, title, prod_group, salesrank, total_review", con)
