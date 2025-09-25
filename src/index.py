@@ -32,10 +32,12 @@ def COPY_FROM_STDIN(dados, tabela, colunas, conexao):
                 if total_reviews is not None:
                     total_reviews = int(total_reviews)
                 values = (
+                    dado.get("Id"),
                     dado.get("ASIN"),
                     dado.get("title", None),
                     dado.get("group", None),
                     dado.get("salesrank", None),
+                    dado.get("avg_rating", None),
                     total_reviews)
                 dados_pra_copiar.append(values)
 
@@ -162,11 +164,14 @@ def gerar_csvs(parser, tmp_dir="/out"):
                 total_reviews = dado.get("total", None)
                 if total_reviews is not None:
                     total_reviews = int(total_reviews)
+                #Adicionando o id_product na tupla de f_prod, 
                 writer_prod.writerow((
+                    int(dado.get("Id")),
                     dado.get("ASIN"),
                     dado.get("title", None),
                     dado.get("group", None),
                     dado.get("salesrank", None),
+                    dado.get("avg_rating", None),
                     total_reviews
                 ))
 
@@ -189,7 +194,8 @@ def gerar_csvs(parser, tmp_dir="/out"):
 
                         #Product_categories
                         id_produto = int(dado.get("Id"))
-                        for categoria_completa in hierarquia:
+                        # Foi trocada a hierarquia por hierarquia_reversa, pois estava selecionando a primeira categoria da hierarquia(maior pai).
+                        for categoria_completa in hierarquia_reversa:
                             try:
                                 id_categoria = int(categoria_completa.split('[')[1].strip(']'))
                                 tupla = (id_produto, id_categoria)
@@ -207,11 +213,13 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
         with con.cursor() as cursor:
             if tabela == "Product":
                 sql_tmp = f"""CREATE TEMP TABLE tmp_product(
+                                id_product SERIAL,
                                 asin VARCHAR(20),
                                 title VARCHAR(500),
                                 prod_group VARCHAR(300),
                                 salesrank INTEGER,
                                 total_review INTEGER
+                                avg_rating FLOAT
                                 );"""
                 cursor.execute(sql_tmp)
                 with open(caminho_csv, "r", encoding="utf-8") as f:
@@ -268,7 +276,8 @@ def main():
         con = conectar_postgres()
 
     products_csv, categories_csv, prodcat_csv = gerar_csvs(parser)
-    COPY_FROM(con, "Product", "asin, title, prod_group, salesrank, total_review", products_csv)
+    #Foi adicionaodo a chave do produto e a avg_rating na funcao COPY_FROM
+    COPY_FROM(con, "Product", "id_product, asin, title, prod_group, salesrank, total_review, avg_rating", products_csv)
     COPY_FROM(con, "Categories", "id_category, category_name, id_category_father", categories_csv)
     COPY_FROM(con, "Product_categories", "id_product, id_category_son", prodcat_csv)
 

@@ -14,7 +14,9 @@ CREATE TABLE Product(
     prod_group VARCHAR(300),
     salesrank INTEGER,
     total_review INTEGER,
+    avg_rating FLOAT,
     PRIMARY KEY (id_product)
+    
 );
 
 -- relacao de um produto com outros produtos
@@ -62,7 +64,40 @@ CREATE TABLE Review(
 );
 
 CREATE VIEW View_review AS
-SELECT Product.id_product, COUNT(Review.id_review) AS downloaded, AVG(Review.rating) AS avg_rating
-FROM Product JOIN Review
-ON Product.id_product = Review.id_product
-GROUP BY Product.id_product
+SELECT 
+    p.id_product,
+    COALESCE(Rev.review_count, 0) AS downloaded,
+    COALESCE(Sim.similar_count, 0) AS num_similares,
+    COALESCE(Cat.category_count, 0) AS num_categorias
+FROM 
+    Product AS p
+LEFT JOIN (
+    SELECT 
+        id_product,
+        COUNT(id.review) as review_count
+    FROM
+        Review
+    GROUP BY
+        id_product
+) AS Rev ON p.id_product = Rev.id_product
+
+LEFT JOIN (
+    SELECT
+        id_product,
+        COUNT(id_category_son) AS category_count
+    FROM 
+        Product_categories
+    GROUP BY
+        id_product
+) AS Cat ON p.id_product = Cat.id_product
+
+LEFT JOIN (
+    SELECT 
+        id_product,
+        COUNT(asin_similar) AS similar_count
+    FROM 
+        Product_similar
+    GROUP BY
+        id_product
+) AS Sim ON p.id_product = Sim.id_product
+
