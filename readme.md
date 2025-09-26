@@ -30,6 +30,7 @@ ajuda com os comandos.
 ```bash
     make restart
 ```
+- Ajuda? use `make help`
 
 ## 2. Carga de Dados e Criação de Esquema (make carga)
 O script de carga (src/tp1_3.2.py) cria o esquema do banco de dados e carrega os dados do arquivo de input. 
@@ -76,7 +77,7 @@ Use a variável DB_PASSWORD para definir uma senha específica, mantendo as outr
 Passando Múltiplos Argumentos (Avançado)
 
 Use a variável ARGS com aspas duplas para passar qualquer combinação de argumentos suportados 
-pelo script Python (--db-host, --db-port, --output-dir, etc.).
+pelo script Python (--db-host, --db-port, --output-dir, --product-asin, etc.).
 
 ```bash
     # Definindo porta e diretório de saída, além da senha

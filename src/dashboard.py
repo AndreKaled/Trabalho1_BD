@@ -118,9 +118,16 @@ def main():
     parser.add_argument('--db-user', default=os.getenv('POSTGRES_USER', 'postgres'), help='Usuário do banco de dados.')
     parser.add_argument('--db-password', default=os.getenv('POSTGRES_PASSWORD'), required=os.getenv('POSTGRES_PASSWORD') is None, help='Senha do banco de dados.')
     parser.add_argument('--output-dir', default='/app/out', help='Diretório para salvar os arquivos CSV.')
-
+    parser.add_argument(
+        '--product-asin',
+        type=str,
+        default=None, # Valor padrão é None, indicando que não foi fornecido
+        help='ASIN (Identificador) do produto para consultas que exigem um produto específico.'
+    )
     args = parser.parse_args()
-    
+
+    product_asin = args.product_asin
+
     db_params = {
         'host': args.db_host,
         'port': args.db_port,

@@ -51,5 +51,6 @@ help:
 	@echo "  make dashboard  				- executa dashboard com senha padrao"
 	@echo "  make dashboard DB_PASSWORD='senha_daora'	- executa o dashboard com a senha definida"
 	@echo "  make dashboard ARGS='--db-port ...'		- executa o dashboard com todos os argumentos docker"
+	@echo "  make dashboard ARGS='--product-asin ASIN' 	- executa consultas específicas de produto (o ASIN é uma string)."
 	@echo "  make health     				- mostra saúde dos serviços do docker compose"
 	@echo "  make help       				- mostra essa ajuda"
