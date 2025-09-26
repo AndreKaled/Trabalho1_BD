@@ -6,7 +6,7 @@ up:
 
 # derruba os containers
 down:
-	docker compose down
+	docker compose down -v
 
 # reconstroi imagens do docker
 build:
@@ -16,21 +16,41 @@ build:
 restart: down up
 
 # testa o script para conexao do postgres
-test:
+carga:
+ifdef INPUT_FILE
+	docker compose run --rm app python src/index.py --input $(INPUT_FILE)
+else
 	docker compose run --rm app python src/index.py
+endif
 
-parser:
-	docker compose run --rm app python src/parser.py
+dashboard:
+ifdef ARGS
+# aceita os argumentos dados
+	docker compose run --rm app python src/dashboard.py $(ARGS)
+else
+ifdef DB_PASSWORD
+# aceita se for so a senha
+	docker compose run --rm app python src/dashboard.py --db-password $(DB_PASSWORD)
+else
+# assume a senha padrao (postgres)
+	docker compose run --rm app python src/dashboard.py --db-password postgres
+endif
+endif
 
 health:
 	docker compose ps
 
 help:
 	@echo "Comandos disponíveis:"
-	@echo "  make up       - sobe containers em background (com build)"
-	@echo "  make down     - derruba os containers"
-	@echo "  make build    - reconstrói as imagens"
-	@echo "  make restart  - reinicia containers"
-	@echo "  make test     - executa script de teste de conexão"
-	@echo "  make health   - mostra saúde dos serviços do docker compose"
-	@echo "  make help     - mostra esta ajuda"
+	@echo "  make up         				- sobe containers em background (com build)"
+	@echo "  make down       				- derruba os containers"
+	@echo "  make build      				- reconstrói as imagens"
+	@echo "  make restart    				- reinicia containers"
+	@echo "  make carga    				- executa o script de carga com o arquivo padrão (../data/amazon-meta.txt)"
+	@echo "  make carga INPUT_FILE='../data/NOME.txt'	- executa o script de carga com o arquivo do argumento (copie o arquivo para /data/)"
+	@echo "  make dashboard  				- executa dashboard com senha padrao"
+	@echo "  make dashboard DB_PASSWORD='senha_daora'	- executa o dashboard com a senha definida"
+	@echo "  make dashboard ARGS='--db-port ...'		- executa o dashboard com todos os argumentos docker"
+	@echo "  make dashboard ARGS='--product-asin ASIN' 	- executa consultas específicas de produto (o ASIN é uma string)."
+	@echo "  make health     				- mostra saúde dos serviços do docker compose"
+	@echo "  make help       				- mostra essa ajuda"
