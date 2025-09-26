@@ -1,4 +1,4 @@
-.PHONY: up down build restart test help health
+.PHONY: up down build restart carga dashboard help health
 
 # sobe containers em background com build
 up:
@@ -18,22 +18,22 @@ restart: down up
 # testa o script para conexao do postgres
 carga:
 ifdef INPUT_FILE
-	docker compose run --rm app python src/index.py --input $(INPUT_FILE)
+	docker compose run --rm app python src/tp1_3.2.py --input $(INPUT_FILE)
 else
-	docker compose run --rm app python src/index.py
+	docker compose run --rm app python src/tp1_3.2.py
 endif
 
 dashboard:
 ifdef ARGS
 # aceita os argumentos dados
-	docker compose run --rm app python src/dashboard.py $(ARGS)
+	docker compose run --rm app python src/tp1_3.3.py $(ARGS)
 else
 ifdef DB_PASSWORD
 # aceita se for so a senha
-	docker compose run --rm app python src/dashboard.py --db-password $(DB_PASSWORD)
+	docker compose run --rm app python src/tp1_3.3.py --db-password $(DB_PASSWORD)
 else
 # assume a senha padrao (postgres)
-	docker compose run --rm app python src/dashboard.py --db-password postgres
+	docker compose run --rm app python src/tp1_3.3.py --db-password postgres
 endif
 endif
 
