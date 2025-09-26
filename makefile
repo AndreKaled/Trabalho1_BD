@@ -46,7 +46,7 @@ help:
 	@echo "  make down       				- derruba os containers"
 	@echo "  make build      				- reconstrói as imagens"
 	@echo "  make restart    				- reinicia containers"
-	@echo "  make carga    				- executa o script de carga com o arquivo padrão (../data/amazon-meta.txt)"
+	@echo "  make carga    				- executa o script de carga com o arquivo padrão (../data/snap_amazon.txt)"
 	@echo "  make carga INPUT_FILE='../data/NOME.txt'	- executa o script de carga com o arquivo do argumento (copie o arquivo para /data/)"
 	@echo "  make dashboard  				- executa dashboard com senha padrao"
 	@echo "  make dashboard DB_PASSWORD='senha_daora'	- executa o dashboard com a senha definida"

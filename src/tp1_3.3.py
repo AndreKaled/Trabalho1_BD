@@ -11,31 +11,215 @@ import psycopg # Biblioteca moderna para PostgreSQL. Se usar a mais antiga, use 
 # A chave do dicionário será usada como nome do arquivo CSV.
 # ====================================================================
 QUERIES = {
-    "01_contagem_total_produtos": """
-        SELECT COUNT(*) AS total_de_produtos FROM Product;
-    """,
+        "01_5_MAIS_UTEIS_MAIS_MENOS_AVALIACAO":
+        """
+        -- =======================================================================
+        -- VERSÃO APRIMORADA: Garante a ordem dos grupos no resultado final
+        -- =======================================================================
 
-    "02_top_5_produtos_com_mais_reviews": """
+        WITH top_best_reviews AS (
+            SELECT
+                id_review, rating, helpful, votes, customer, data_review
+            FROM Review
+            WHERE id_product = (SELECT id_product FROM Product WHERE asin = '1559362022')
+            ORDER BY rating DESC, helpful DESC
+            LIMIT 5
+        ),
+        top_helpful_low_rated_reviews AS (
+            SELECT
+                id_review, rating, helpful, votes, customer, data_review
+            FROM Review
+            WHERE id_product = (SELECT id_product FROM Product WHERE asin = '1559362022')
+            AND id_review NOT IN (SELECT id_review FROM top_best_reviews)
+            ORDER BY rating DESC, helpful ASC
+            LIMIT 5
+        )
+        -- Seleção final para juntar e ordenar os resultados
         SELECT
-            p.id_product,
-            p.title,
-            COALESCE(vr.downloaded, 0) AS quantidade_reviews
-        FROM
-            Product p
-        LEFT JOIN
-            View_review vr ON p.id_product = vr.id_product
+            categoria,
+            rating,
+            helpful,
+            customer,
+            data_review
+        FROM (
+            -- Primeiro grupo com chave de ordenação = 1
+            SELECT
+                1 AS sort_key,
+                'Mais Úteis e com Maior Avaliação' AS categoria,
+                rating, helpful, customer, data_review
+            FROM
+                top_best_reviews
+            UNION ALL
+            -- Segundo grupo com chave de ordenação = 2
+            SELECT
+                2 AS sort_key,
+                'Mais Úteis e com Menor Avaliação' AS categoria,
+                rating, helpful, customer, data_review
+            FROM
+                top_helpful_low_rated_reviews
+        ) AS final_result
         ORDER BY
-            quantidade_reviews DESC 
-        LIMIT 5;
-    """,
+            sort_key; -- Ordena pela chave para garantir a separação dos blocos
+            """,
+        "02_SIMILARES_MAIORES_VENDAS(SALESRANK)":
+        """
+                -- Substitua '0790747324' pelo ASIN do produto que você deseja consultar
+        SELECT
+            p_sim.asin,
+            p_sim.title,
+            p_sim.salesrank AS similar_salesrank,
+            p_orig.salesrank AS original_salesrank
+        FROM
+            Product AS p_orig
+        JOIN
+            Product_similar AS ps ON p_orig.id_product = ps.id_product
+        JOIN
+            Product AS p_sim ON ps.asin_similar = p_sim.asin
+        WHERE
+            p_orig.asin = 'B000002T4S'
+            AND p_sim.salesrank < p_orig.salesrank
+            AND p_sim.salesrank IS NOT NULL -- Boa prática para garantir que estamos comparando valores
+        ORDER BY
+            p_sim.salesrank ASC; -- Ordena para mostrar o melhor ranking primeiro
+                            
+        """,
 
-    "03_quantidade_de_review": """
-        SELECT COUNT(*)
-        FROM Review
-    """
+        "03_EVOLUCAO_DIARIA":
+        """
+        SELECT DISTINCT ON (r.data_review)
+            r.data_review AS dia_da_avaliacao,
+            p.title AS titulo_do_produto,
+            -- A função de janela calcula a média de todas as notas
+            -- desde a primeira avaliação até a linha (dia) atual.
+            AVG(r.rating) OVER (ORDER BY r.data_review ASC) AS media_acumulada
+        FROM
+            Review AS r
+            JOIN
+            Product AS p ON r.id_product = p.id_product
+        WHERE
+            p.asin = '1559362022'
+        ORDER BY
+            r.data_review ASC;
+        """,
+
+
+        "04_LIDERES_VENDAS_POR_GRUPO":"""
+            WITH RankedProducts AS (
+            -- Passo 1: Classificar cada produto dentro do seu grupo de produtos
+            SELECT
+                asin,
+                title,
+                prod_group,
+                salesrank,
+                ROW_NUMBER() OVER (PARTITION BY prod_group ORDER BY salesrank ASC) AS rank_in_group
+            FROM
+                Product
+            WHERE
+                salesrank IS NOT NULL AND salesrank > 0 -- Garante que estamos classificando apenas produtos com um ranking de vendas válido
+        )
+        -- Passo 2: Filtrar o resultado para obter apenas os 10 primeiros de cada grupo
+        SELECT
+            prod_group AS "Grupo de Produtos",
+            rank_in_group AS "Rank no Grupo",
+            asin,
+            title AS "Título",
+            salesrank AS "Rank de Vendas"
+        FROM
+            RankedProducts
+        WHERE
+            rank_in_group <= 10
+        ORDER BY
+            "Grupo de Produtos" ASC,
+            "Rank no Grupo" ASC;
+        """,
+
+        "05_10_PRODUTOS_MAIOR_MEDIA_AVALICAO_UTEIS_POSITIVA":
+        """
+                    SELECT
+            p.asin,
+            p.title,
+            AVG(
+                CASE
+                    WHEN (CAST(r.helpful AS NUMERIC) / r.votes) > 0.5 THEN 1.0
+                    ELSE 0.0
+                END
+            ) AS percentual_avaliacoes_uteis
+        FROM
+            Product AS p
+        JOIN
+            Review AS r ON p.id_product = r.id_product
+        WHERE
+            r.votes > 0 -- Garante que a avaliação foi votada e evita divisão por zero
+        GROUP BY
+            p.asin,
+            p.title
+        ORDER BY
+            percentual_avaliacoes_uteis DESC
+        LIMIT 10; 
+        """,
+        
+        "06_5_CATEGORIAS_MAIOR_MEDIA":
+        """
+                    SELECT
+            c.category_name,
+            AVG(
+                CASE
+                    WHEN (CAST(r.helpful AS NUMERIC) / r.votes) > 0.5 THEN 1.0
+                    ELSE 0.0
+                END
+            ) AS percentual_avaliacoes_uteis
+        FROM
+            Categories AS c
+        JOIN
+            Product_categories AS pc ON c.id_category = pc.id_category_son
+        JOIN
+            Product AS p ON pc.id_product = p.id_product
+        JOIN
+            Review AS r ON p.id_product = r.id_product
+        WHERE
+            r.votes > 0 -- Garante que a avaliação foi votada e evita divisão por zero
+        GROUP BY
+            c.id_category,
+            c.category_name
+        ORDER BY
+            percentual_avaliacoes_uteis DESC
+        LIMIT 5;
+        """,
+
+        "07_10_CLIENTES_MAIS_COMENTARIOS_POR_GRUPO":
+        """
+                WITH RankedCustomers AS (
+            SELECT
+                r.customer,
+                p.prod_group,
+                COUNT(r.id_review) AS total_comentarios,
+                ROW_NUMBER() OVER(PARTITION BY p.prod_group ORDER BY COUNT(r.id_review) DESC) AS ranking
+            FROM
+                Review AS r
+            JOIN
+                Product AS p ON r.id_product = p.id_product
+            GROUP BY
+                p.prod_group,
+                r.customer
+        )
+        SELECT
+            prod_group,
+            customer,
+            total_comentarios,
+            ranking
+        FROM
+            RankedCustomers
+        WHERE
+            ranking <= 10
+        ORDER BY
+            prod_group,
+            ranking;
+        """
 }
 
+
 def execute_queries(db_params, output_dir):
+
     """
     Conecta ao banco de dados e executa as consultas definidas no dicionário QUERIES.
     """

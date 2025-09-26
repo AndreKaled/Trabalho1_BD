@@ -62,11 +62,7 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
         writer_review = csv.writer(f_rev)
         writer_customer = csv.writer(f_cus)
 
-        #review_id = 0 Saiuuu pq não precisamos, o domínio Serial faz a incrementação sozinhooo
         num_pacotes = 0
-
-
-        #foi adicionado uma lista para conter todos os ASIN do arquivo pois o similar usar ASIN e referencia o ASIN do Product(ASIN).
         categories_set = set()
         prodcat_set = set()
         asin_list = set()
@@ -78,15 +74,9 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
         for produtos in parser(arquivo, CHUNK):
 
             print(f"FORAM ADICIONADOS {num_pacotes} Produtos, E ESTÁ SENDO INICIADO O PARSER DE UM NOVO PACOTE DE PRODUTOS")
-            if(num_pacotes>=1000):
-               break
-            print(len(produtos))
 
 
             for dado in produtos:
-                print(f"Produtos número {num_pacotes} sendo carregado.")
-
-
                 if(len(dado) < 3):
                     continue
                 total_reviews = dado.get("total", None)
@@ -107,7 +97,6 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
 
 
                 if "categories" in dado and dado["categories"]:
-                    print("Carregando categories")
                     for hierarquia in dado["categories"]:
                         hierarquia_reversa = list(reversed(hierarquia))
                         id_filho = None
@@ -126,7 +115,6 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
 
                         #Product_categories
                         id_produto = int(dado.get("Id"))
-                        # Foi trocada a hierarquia por hierarquia_reversa, pois estava selecionando a primeira categoria da hierarquia(maior pai).
                         for categoria_completa in hierarquia_reversa:
                             try:
                                 id_categoria = int(categoria_completa.split('[')[-1].strip(']'))
@@ -139,7 +127,6 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
                                 continue
                             
                 if("similar" in dado and dado["similar"]):
-                    print("Carregando similares")
                     id_produto = int(dado.get("Id"))
                     similares = dado["similar"].split("  ")
                     for asin_similar in similares:
@@ -151,12 +138,10 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
                             continue
 
                 if 'reviews' in dado and dado['reviews']:
-                    print("Carregando reviews")
                     id_produto = int(dado.get("Id"))
 
                     for review in dado['reviews']:
                         try:
-                            #id_review = review_id Saiu pq implementa sozinhoooooooooo
                             id_produto = id_produto
                             data = review['data']
                             customer = review['customer']
@@ -169,12 +154,8 @@ def gerar_csvs(parser, arquivo, tmp_dir="/out"):
                                 customers.add((customer))
 
                             if(customer in customers):    
-                                #values = (int(id_review), id_produto, data, customer, rating, votes, helpful)
                                 values = ( id_produto, data, customer, rating, votes, helpful) #id_rivew saiu porque é serial e implementa sozinho
-
-                                print(values) #Printa as tuplas das reviews     RETIRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA!!!!
                                 writer_review.writerow(values)
-                                #id_review +=1 Saiuuuu pq o domínio SERIAL incrementa sozinho
                             else:
                                 print("Customer da review não está em customers")
 
@@ -250,7 +231,6 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                                 asin_similar VARCHAR(20)
                             );"""
                 cursor.execute(sql_tmp)
-                #falta fazer o caminho_csv
                 with open(caminho_csv, "r", encoding="utf-8") as f:
                     with cursor.copy(f"COPY tmp_product_similar FROM STDIN CSV") as copy:
                         for linha in f:
@@ -267,7 +247,6 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                         data_review DATE, customer VARCHAR(20), 
                         rating  INTEGER, votes INTEGER, helpful INTEGER);"""
                 
-                        #id_review SERIAL,  Saiu da criação da tabela CREAT TEMP TABLE pq o domínio SERIAL incremeneta sozinhooo
                 cursor.execute(sql_tmp)
                 with open(caminho_csv, "r", encoding="utf-8") as f:
                     with cursor.copy(f"COPY tmp_review({colunas}) FROM STDIN CSV") as copy:
@@ -277,19 +256,8 @@ def COPY_FROM(con, tabela, colunas, caminho_csv):
                 sql_tmp = f"""INSERT INTO {tabela}({colunas})
                 SELECT {colunas} FROM tmp_review;
                             """
-                cursor.execute(sql_tmp)
-
-                #Não entendi o pq não precisa incrementar nas linhas, apenas insere direto, mas funcionou  NÃO MECHAAAAAA É PERIGOSOOOOOOOOOO
-                '''
-                    with cursor.copy(f"COPY tmp_review FROM STDIN CSV") as copy:
-                        for linha in f:
-                            print(linha)
-                            copy.write(linha)
-                sql_tmp = f"""INSERT INTO {tabela}({colunas})
-                            SELECT DISTINCT {colunas} FROM tmp_review;
-                            """
-                            #ON CONFLICT (id_review) DO NOTHING;'''
-            
+                cursor.execute(sql_tmp);
+           
             #INSERÇÃO DA TABELA CUSTOMER:
             elif tabela == "Customer":
                 sql_tmp = """CREATE TEMP TABLE tmp_customer(
@@ -319,7 +287,7 @@ def main():
     arg_parser.add_argument(
         '--input',
         type=str,
-        default='../data/amazon-meta.txt',
+        default='../data/snap_amazon.txt',
         help='Host do banco de dados.')
     args = arg_parser.parse_args()
     arquivo_input = args.input
