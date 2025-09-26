@@ -11,42 +11,74 @@ Ou siga os passos abaixo com o Makefile, se desejar use o ```make help``` para
 ajuda com os comandos.
 
 ---
-
-## 1) Construir e subir os serviços
-```bash
+## 1. Inicialização do Ambiente
+   Use o comando abaixo para construir as imagens (se necessário) e iniciar os serviços db (PostgreSQL) e app (Aplicação Python) em background.
+   ```bash 
    make up
-```
-O comando executa exatamente isto:
+   ```
+
+### Gerenciando o ambiente
+- `make down` derruba (para) os contêineres e remove os volumes.
 ```bash
-    docker compose up -d --build
+    make down
+```
+- `make build` reconstrói as imagens do Docker, sem subir os contêineres.
+```bash
+    make build
+```
+- `make restart` Derruba e sobe os contêineres novamente (make up e make down)
+```bash
+    make restart
 ```
 
-## 2) (Opcional) conferir saúde do PostgreSQL
-```bash
-    make health
-```
-O comando executa exatamente isto:
-```bash
-    docker compose ps
-```
+## 2. Carga de Dados e Criação de Esquema (make carga)
+O script de carga (src/tp1_3.2.py) cria o esquema do banco de dados e carrega os dados do arquivo de input. 
+Por padrão, ele tenta carregar o arquivo em ```../data/amazon-meta.txt``` (o default do script Python).
 
-## Teste da conexão com o postgres
+Uso Padrão (Arquivo Default)
 ```bash
-    make test
+    make carga
 ```
-O comando executa exatamente isto: 
+Carregando um Arquivo Específico
+Você pode especificar o caminho do arquivo de dados (que deve estar acessível dentro do contêiner, 
+geralmente montado via volume, ex: /data/). Use a variável INPUT_FILE.
 ```bash
-    docker compose run --rm app python src/index.py
+    make carga INPUT_FILE="../data/nome.txt"
 ```
+Uso com argumentos (usando o arquivo padrao)
 
----
-# A partir daqui está em desenvolvimento
-## 3) Criar esquema e carregar dados
+Uso com argumentos e o arquivo específico
+
 docker compose run --rm app python src/tp1_3.2.py \
 --db-host db --db-port 5432 --db-name ecommerce --db-user postgres --db-pass postgres \
 --input /data/snap_amazon.txt
 
 ## 4) Executar o Dashboard (todas as consultas)
-docker compose run --rm app python src/tp1_3.3.py \
---db-host db --db-port 5432 --db-name ecommerce --db-user postgres --db-pass postgres \
---output /app/out
+O script do Dashboard (src/dashboard.py) executa consultas no banco de dados. 
+Ele é flexível e permite que você passe argumentos para sobrescrever as configurações de conexão 
+(como host, porta, senha, etc.)
+
+Usando a Senha Padrão
+
+O make assume a senha postgres, que é a senha padrão do seu contêiner.
+```bash
+    make dashboard
+```
+
+Passando Apenas a Senha
+
+Use a variável DB_PASSWORD para definir uma senha específica, mantendo as outras configurações padrão 
+(host: db, port: 5432, etc.).
+```bash
+    make dashboard DB_PASSWORD='senha_secreta'
+```
+
+Passando Múltiplos Argumentos (Avançado)
+
+Use a variável ARGS com aspas duplas para passar qualquer combinação de argumentos suportados 
+pelo script Python (--db-host, --db-port, --output-dir, etc.).
+
+```bash
+    # Definindo porta e diretório de saída, além da senha
+    make dashboard ARGS="--db-port 5444 --db-password nova_senha --output-dir /app/custom_out"
+```

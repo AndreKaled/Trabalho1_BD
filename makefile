@@ -6,7 +6,7 @@ up:
 
 # derruba os containers
 down:
-	docker compose down
+	docker compose down -v
 
 # reconstroi imagens do docker
 build:
