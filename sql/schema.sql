@@ -46,7 +46,7 @@ CREATE TABLE Product_categories(
 );
 
 CREATE TABLE Customer(
-    id_customer VARCHAR(14) PRIMARY KEY
+    id_customer VARCHAR(20) PRIMARY KEY
 );
 
 CREATE TABLE Review(

@@ -7,7 +7,7 @@
 /dataSources/
 /dataSources.local.xml
 /.idea
-amazon-meta.txt
+snap_amazon.txt
 /.out/*
 /out/*
 __pycache__/

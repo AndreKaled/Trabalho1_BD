@@ -1,5 +1,10 @@
 # Trabalho Prático 1 – Bancos de Dados I
 
+Alunos:
+- ANDRÉ KALED DUARTE COUTINHO ANDRADE
+- MICHAEL WILLIAN PEREIRA VIEIRA
+- SVEN MAXIMILIAN KALISCH
+
 Este repositório contém a solução do TP1 da disciplina 
 **Bancos de Dados I (2025/02)**.  
 O ambiente é conteinerizado com **Docker** e **Docker Compose**, 

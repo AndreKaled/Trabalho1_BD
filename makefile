@@ -1,4 +1,4 @@
-.PHONY: up down build restart test help health
+.PHONY: up down build restart carga dashboard help health
 
 # sobe containers em background com build
 up:
@@ -18,22 +18,22 @@ restart: down up
 # testa o script para conexao do postgres
 carga:
 ifdef INPUT_FILE
-	docker compose run --rm app python src/index.py --input $(INPUT_FILE)
+	docker compose run --rm app python src/tp1_3.2.py --input $(INPUT_FILE)
 else
-	docker compose run --rm app python src/index.py
+	docker compose run --rm app python src/tp1_3.2.py
 endif
 
 dashboard:
 ifdef ARGS
 # aceita os argumentos dados
-	docker compose run --rm app python src/dashboard.py $(ARGS)
+	docker compose run --rm app python src/tp1_3.3.py $(ARGS)
 else
 ifdef DB_PASSWORD
 # aceita se for so a senha
-	docker compose run --rm app python src/dashboard.py --db-password $(DB_PASSWORD)
+	docker compose run --rm app python src/tp1_3.3.py --db-password $(DB_PASSWORD)
 else
 # assume a senha padrao (postgres)
-	docker compose run --rm app python src/dashboard.py --db-password postgres
+	docker compose run --rm app python src/tp1_3.3.py --db-password postgres
 endif
 endif
 
@@ -46,7 +46,7 @@ help:
 	@echo "  make down       				- derruba os containers"
 	@echo "  make build      				- reconstrói as imagens"
 	@echo "  make restart    				- reinicia containers"
-	@echo "  make carga    				- executa o script de carga com o arquivo padrão (../data/amazon-meta.txt)"
+	@echo "  make carga    				- executa o script de carga com o arquivo padrão (../data/snap_amazon.txt)"
 	@echo "  make carga INPUT_FILE='../data/NOME.txt'	- executa o script de carga com o arquivo do argumento (copie o arquivo para /data/)"
 	@echo "  make dashboard  				- executa dashboard com senha padrao"
 	@echo "  make dashboard DB_PASSWORD='senha_daora'	- executa o dashboard com a senha definida"
